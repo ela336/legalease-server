@@ -7,6 +7,7 @@ import hiresRoutes from "./routes/hires.js";
 import commentsRoutes from "./routes/comments.js";
 import usersRoutes from "./routes/users.js";
 import statsRoutes from "./routes/stats.js";
+import paymentsRoutes from "./routes/payments.js";   // <- new import
 
 const app = express();
 
@@ -20,6 +21,7 @@ app.use("/api/hires", hiresRoutes);
 app.use("/api/comments", commentsRoutes);
 app.use("/api/users", usersRoutes);
 app.use("/api/stats", statsRoutes);
+app.use("/api/payments", paymentsRoutes);            // <- new route
 
 app.use((req, res) => res.status(404).json({ message: "Route not found" }));
 
