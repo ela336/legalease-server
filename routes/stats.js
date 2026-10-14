@@ -71,5 +71,18 @@ router.get("/", verifyToken, requireRole("admin"), async (req, res) => {
     categories: categories.map((c) => ({ name: c._id, count: c.count })),
   });
 });
+// Public: live numbers for the home page
+router.get("/public", async (req, res) => {
+  const db = await getDb();
+
+  const [lawyers, clients, hires, specializations] = await Promise.all([
+    db.collection("lawyers").countDocuments({ published: true }),
+    db.collection("user").countDocuments({ role: { $nin: ["lawyer", "admin"] } }),
+    db.collection("hires").countDocuments({ status: "accepted" }),
+    db.collection("lawyers").distinct("specialization", { published: true }),
+  ]);
+
+  res.json({ lawyers, clients, hires, specializations: specializations.length });
+});
 
 export default router;

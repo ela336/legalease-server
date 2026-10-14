@@ -5,14 +5,17 @@ import { verifyToken, requireRole } from "../middleware/auth.js";
 
 const router = Router();
 
-// Public: comments on a lawyer
+// Public: comments on a lawyer (commenter emails are not exposed)
 router.get("/lawyer/:lawyerId", async (req, res) => {
   if (!ObjectId.isValid(req.params.lawyerId)) return res.json([]);
   const db = await getDb();
   res.json(
     await db
       .collection("comments")
-      .find({ lawyerId: new ObjectId(req.params.lawyerId) })
+      .find(
+        { lawyerId: new ObjectId(req.params.lawyerId) },
+        { projection: { userEmail: 0 } }
+      )
       .sort({ createdAt: -1 })
       .toArray()
   );
@@ -30,6 +33,24 @@ router.get("/can-comment/:lawyerId", verifyToken, async (req, res) => {
     status: "accepted",
   });
   res.json({ allowed: !!hire });
+});
+
+// Public: latest comments for the home page testimonials
+router.get("/latest", async (req, res) => {
+  const db = await getDb();
+  const comments = await db
+    .collection("comments")
+    .find({}, { projection: { userEmail: 0 } })
+    .sort({ createdAt: -1 })
+    .limit(6)
+    .toArray();
+  res.json(comments);
+});
+
+// My comments
+router.get("/mine", verifyToken, requireRole("user"), async (req, res) => {
+  const db = await getDb();
+  res.json(await db.collection("comments").find({ userEmail: req.user.email }).sort({ createdAt: -1 }).toArray());
 });
 
 // Add comment (hire record required)
@@ -63,12 +84,6 @@ router.post("/", verifyToken, requireRole("user"), async (req, res) => {
   res.status(201).json({ ...doc, _id: result.insertedId });
 });
 
-// My comments
-router.get("/mine", verifyToken, requireRole("user"), async (req, res) => {
-  const db = await getDb();
-  res.json(await db.collection("comments").find({ userEmail: req.user.email }).sort({ createdAt: -1 }).toArray());
-});
-
 // Edit own comment
 router.patch("/:id", verifyToken, requireRole("user"), async (req, res) => {
   const { text } = req.body;
@@ -78,7 +93,10 @@ router.patch("/:id", verifyToken, requireRole("user"), async (req, res) => {
   const db = await getDb();
   const result = await db
     .collection("comments")
-    .updateOne({ _id: new ObjectId(req.params.id), userEmail: req.user.email }, { $set: { text: text.trim(), updatedAt: new Date() } });
+    .updateOne(
+      { _id: new ObjectId(req.params.id), userEmail: req.user.email },
+      { $set: { text: text.trim(), updatedAt: new Date() } }
+    );
   if (!result.matchedCount) return res.status(404).json({ message: "Comment not found" });
   res.json({ message: "Updated" });
 });
